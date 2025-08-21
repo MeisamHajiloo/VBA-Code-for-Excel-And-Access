@@ -1,0 +1,125 @@
+Sub MergeFilesWithDifferentSkipRows_RemoveDupes()
+    Dim fPath As String, fName As String
+    Dim wbMaster As Workbook, wbSource As Workbook
+    Dim wsSource As Worksheet, wsMaster As Worksheet
+    Dim lastRow As Long, sourceLastRow As Long, sourceLastCol As Long
+    Dim fileCount As Integer, rowsToSkip As Integer
+    Dim isFirstFile As Boolean
+    Const FILENAME_COLUMN As Integer = 8 ' Column H
+    
+    ' Initialize
+    Set wbMaster = ThisWorkbook
+    fileCount = 0
+    isFirstFile = True
+    
+    ' Get folder path from user
+    With Application.FileDialog(msoFileDialogFolderPicker)
+        .Title = "Select folder containing Excel files to merge"
+        If .Show = -1 Then
+            fPath = .SelectedItems(1) & "\"
+        Else
+            MsgBox "No folder selected. Operation cancelled.", vbExclamation
+            Exit Sub
+        End If
+    End With
+    
+    ' Prepare master worksheet
+    Application.ScreenUpdating = False
+    On Error Resume Next
+    Application.DisplayAlerts = False
+    wbMaster.Worksheets("Trade_Map").Delete
+    Application.DisplayAlerts = True
+    On Error GoTo 0
+    
+    Set wsMaster = wbMaster.Worksheets.Add(After:=wbMaster.Worksheets(wbMaster.Worksheets.Count))
+    wsMaster.Name = "Trade_Map"
+    
+    ' Process each Excel file
+    fName = Dir(fPath & "*.xls*") ' Includes both .xls and .xlsx
+    
+    Do While fName <> ""
+        If fName <> wbMaster.Name Then
+            Set wbSource = Workbooks.Open(fPath & fName, ReadOnly:=True)
+            fileCount = fileCount + 1
+            
+            ' Set rows to skip (5 for first file, 6 for others)
+            rowsToSkip = IIf(isFirstFile, 5, 6)
+            
+            For Each wsSource In wbSource.Worksheets
+                ' Find data boundaries in source
+                sourceLastRow = wsSource.Cells.Find("*", SearchOrder:=xlByRows, SearchDirection:=xlPrevious).Row
+                sourceLastCol = wsSource.Cells.Find("*", SearchOrder:=xlByColumns, SearchDirection:=xlPrevious).Column
+                
+                If sourceLastRow > rowsToSkip Then
+                    ' Prepare destination
+                    lastRow = wsMaster.Cells(wsMaster.Rows.Count, 1).End(xlUp).Row
+                    If lastRow = 1 And wsMaster.Cells(1, 1).Value <> "" Then lastRow = 2
+                    
+                    ' Copy data (skip header rows)
+                    wsSource.Range(wsSource.Cells(rowsToSkip + 1, 1), _
+                                 wsSource.Cells(sourceLastRow, sourceLastCol)).Copy _
+                                 wsMaster.Cells(lastRow + 1, 1)
+                    
+                    ' Add filename in column H (or last column if data extends beyond H)
+                    Dim actualFilenameColumn As Long
+                    actualFilenameColumn = FILENAME_COLUMN
+                    If wsMaster.Cells(1, wsMaster.Columns.Count).End(xlToLeft).Column >= FILENAME_COLUMN Then
+                        actualFilenameColumn = wsMaster.Cells(1, wsMaster.Columns.Count).End(xlToLeft).Column + 1
+                    End If
+                    
+                    wsMaster.Cells(lastRow + 1, actualFilenameColumn).Resize(sourceLastRow - rowsToSkip, 1).Value = fName
+                End If
+            Next wsSource
+            
+            wbSource.Close False
+            isFirstFile = False ' After first file, set flag to false
+        End If
+        fName = Dir()
+        Application.StatusBar = "Processed " & fileCount & " files..."
+    Loop
+    
+    ' Post-processing
+    If fileCount > 0 Then
+        ' Add filename header if data exists
+        Dim lastCol As Long
+        lastCol = wsMaster.Cells(1, wsMaster.Columns.Count).End(xlToLeft).Column
+        If lastCol < FILENAME_COLUMN Then
+            wsMaster.Cells(1, FILENAME_COLUMN).Value = "Source File"
+        Else
+            wsMaster.Cells(1, lastCol).Value = "Source File"
+        End If
+        
+        ' Remove duplicates based on Column A (keep first instance)
+        If wsMaster.Cells(wsMaster.Rows.Count, "A").End(xlUp).Row > 1 Then
+            With wsMaster.UsedRange
+                .RemoveDuplicates Columns:=1, Header:=xlYes
+            End With
+        End If
+        
+        ' Formatting
+        wsMaster.Columns.AutoFit
+        wsMaster.Rows(1).Font.Bold = True
+    End If
+    
+    ' Clean up and notify
+    Application.ScreenUpdating = True
+    Application.StatusBar = False
+    
+    If fileCount > 0 Then
+        MsgBox "Successfully merged " & fileCount & " files." & vbCrLf & _
+               "• First file: 5 header rows skipped" & vbCrLf & _
+               "• Other files: 6 header rows skipped" & vbCrLf & _
+               "• Source filenames placed in column H (or last column)" & vbCrLf & _
+               "• Duplicates removed based on Column A values", _
+               vbInformation, "Merge Complete"
+    Else
+        MsgBox "No files were processed.", vbExclamation
+    End If
+    
+    ' Clean up objects
+    Set wsSource = Nothing
+    Set wbSource = Nothing
+    Set wsMaster = Nothing
+    Set wbMaster = Nothing
+End Sub
+
