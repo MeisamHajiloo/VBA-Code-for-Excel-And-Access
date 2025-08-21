@@ -1,0 +1,142 @@
+Sub ProcessMultipleExcelFilesWithTrim()
+    Dim wb As Workbook
+    Dim ws As Worksheet, outputWs As Worksheet
+    Dim selectedFiles As Variant
+    Dim i As Long, j As Long, k As Long
+    Dim lastRow As Long, lastCol As Long
+    Dim outputRow As Long
+    Dim stockName As String, buyerName As String
+    Dim dates() As Variant
+    Dim values() As Variant
+    Dim changes() As Variant
+    Dim fileCount As Integer
+    Dim dateParts() As String
+    Dim formattedDate As String
+    
+    ' ÇäÊÎÇÈ äÏíä ÝÇíá Ç˜Óá
+    selectedFiles = Application.GetOpenFilename( _
+        FileFilter:="Excel Files (*.xlsx; *.xls), *.xlsx; *.xls", _
+        Title:="Select Excel Files to Process", _
+        MultiSelect:=True)
+    
+    ' ÇÑ åí ÝÇíáí ÇäÊÎÇÈ äÔÏå ÈÇÔÏ¡ ÎÑæÌ
+    If Not IsArray(selectedFiles) Then
+        MsgBox "åí ÝÇíáí ÇäÊÎÇÈ äÔÏ. ãÇ˜Ñæ ãÊæÞÝ ÔÏ.", vbExclamation
+        Exit Sub
+    End If
+    
+    ' ÇíÌÇÏ ÔíÊ ÎÑæÌí
+    Set outputWs = ThisWorkbook.Sheets.Add(After:=ThisWorkbook.Sheets(ThisWorkbook.Sheets.Count))
+    outputWs.Name = "Output"
+    
+    ' ÇíÌÇÏ åÏÑåÇí ÎÑæÌí
+    outputWs.Cells(1, 1).Value = "ÓåÇã"
+    outputWs.Cells(1, 2).Value = "ÎÑíÏÇÑ/ÝÑæÔäÏå"
+    outputWs.Cells(1, 3).Value = "ÊÇÑíÎ"
+    outputWs.Cells(1, 4).Value = "ãÞÏÇÑ ÓåÇã"
+    outputWs.Cells(1, 5).Value = "ÎÑíÏ æ ÝÑæÔ"
+    outputWs.Cells(1, 6).Value = "äÇã ÝÇíá ãäÈÚ"
+    
+    outputRow = 2
+    fileCount = 0
+    
+    ' ÑÏÇÒÔ åÑ ÝÇíá ÇäÊÎÇÈí
+    For i = LBound(selectedFiles) To UBound(selectedFiles)
+        Set wb = Workbooks.Open(selectedFiles(i))
+        fileCount = fileCount + 1
+        
+        ' ÝÑÖ ãí˜äíã ÏÇÏååÇ ÏÑ Çæáíä ÔíÊ åÓÊäÏ
+        Set ws = wb.Sheets(1)
+        lastRow = ws.Cells(ws.Rows.Count, "A").End(xlUp).Row
+        lastCol = ws.Cells(2, ws.Columns.Count).End(xlToLeft).Column
+        
+        ' ÊÚÑíÝ ÂÑÇíååÇ ÈÑÇí ÊÇÑíÎåÇ
+        ReDim dates(1 To lastCol - 1)
+        For j = 2 To lastCol
+            ' Convert date to 8-digit format
+            If InStr(ws.Cells(2, j).Value, "/") > 0 Then
+                dateParts = Split(ws.Cells(2, j).Value, "/")
+                formattedDate = dateParts(0) & _
+                               Right("0" & dateParts(1), 2) & _
+                               Right("0" & dateParts(2), 2)
+                dates(j - 1) = formattedDate
+            Else
+                dates(j - 1) = ws.Cells(2, j).Value
+            End If
+        Next j
+        
+        ' ÑÏÇÒÔ ÏÇÏååÇ ÏÑ ÝÇíá ÌÇÑí
+        k = 3 ' ÔÑæÚ ÇÒ ÑÏíÝ 3
+        
+        While k <= lastRow
+            ' ÈÑÑÓí ÇÑ ÑÏíÝ äÇã ÓåÇã ÇÓÊ (Ñä Ó Òãíäå ÂÈí ÑæÔä)
+            If ws.Cells(k, 1).Interior.Color = RGB(173, 216, 230) Then
+                stockName = Trim(ws.Cells(k, 1).Value) ' ÍÐÝ ÝÇÕáååÇí ÇÖÇÝå
+                k = k + 1
+            Else
+                ' ÑÏÇÒÔ ÎÑíÏÇÑ/ÝÑæÔäÏå ÈÇ ÍÐÝ ÝÇÕáååÇí ÇÖÇÝå
+                buyerName = Trim(ws.Cells(k, 1).Value)
+                
+                ' ÎæÇäÏä ãÞÇÏíÑ ÓåÇã
+                ReDim values(1 To lastCol - 1)
+                For j = 2 To lastCol
+                    If IsNumeric(ws.Cells(k, j).Value) Then
+                        values(j - 1) = ws.Cells(k, j).Value
+                    Else
+                        values(j - 1) = 0
+                    End If
+                Next j
+                
+                ' ÎæÇäÏä ÊÛííÑÇÊ (ÑÏíÝ ÈÚÏí)
+                k = k + 1
+                If k <= lastRow And ws.Cells(k, 1).Value = "" Then
+                    ReDim changes(1 To lastCol - 1)
+                    For j = 2 To lastCol
+                        If IsNumeric(ws.Cells(k, j).Value) Then
+                            changes(j - 1) = ws.Cells(k, j).Value
+                        Else
+                            changes(j - 1) = 0
+                        End If
+                    Next j
+                    k = k + 1
+                Else
+                    ReDim changes(1 To lastCol - 1)
+                    For j = 1 To lastCol - 1
+                        changes(j) = 0
+                    Next j
+                End If
+                
+                ' äæÔÊä ÏÇÏååÇ Èå ÔíÊ ÎÑæÌí ÈÇ ãÞÇÏíÑ Trim ÔÏå
+                For j = 1 To lastCol - 1
+                    ' ÝÞØ ÏÑ ÕæÑÊí ˜å changes(j) ãÚÊÈÑ ÈÇÔÏ (Null íÇ ÎÇáí äÈÇÔÏ)
+                    If Not IsNull(changes(j)) And changes(j) <> "" And changes(j) <> 0 Then
+                        outputWs.Cells(outputRow, 1).Value = stockName
+                        outputWs.Cells(outputRow, 2).Value = buyerName
+                        outputWs.Cells(outputRow, 3).Value = dates(j)
+                        outputWs.Cells(outputRow, 4).Value = values(j)
+                        outputWs.Cells(outputRow, 5).Value = changes(j)
+                        outputWs.Cells(outputRow, 6).Value = selectedFiles(i)
+                        outputRow = outputRow + 1
+                    End If
+                Next j
+            End If
+        Wend
+        
+        ' ÈÓÊä ÝÇíá ÌÇÑí (ÈÏæä ÐÎíÑå ÊÛííÑÇÊ)
+        wb.Close SaveChanges:=False
+    Next i
+    
+    ' ÝÑãÊÈäÏí ÎÑæÌí
+    outputWs.Columns("A:F").AutoFit
+    outputWs.Rows(1).Font.Bold = True
+    outputWs.Rows(1).Interior.Color = RGB(200, 200, 200)
+    
+    ' ÇíÌÇÏ ÌÏæá ÈÑÇí ÎÑæÌí
+    On Error Resume Next
+    outputWs.ListObjects.Add(xlSrcRange, outputWs.Range("A1").CurrentRegion, , xlYes).Name = "CombinedData"
+    On Error GoTo 0
+    
+    MsgBox "ÑÏÇÒÔ " & fileCount & " ÝÇíá ÈÇ ãæÝÞíÊ ÇäÌÇã ÔÏ!" & vbCrLf & _
+           "ÊÚÏÇÏ Ñ˜æÑÏåÇí ÇíÌÇÏ ÔÏå: " & outputRow - 2, vbInformation
+End Sub
+
