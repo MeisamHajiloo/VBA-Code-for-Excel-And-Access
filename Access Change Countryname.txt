@@ -1,0 +1,134 @@
+Function CorrectCountryName()
+
+Dim db As Database
+Dim qdf As QueryDef
+
+    
+'------ MainDB ReporterDesc Table Correct
+Set db = CurrentDb
+sSQL = "UPDATE MainDB SET ReporterDesc = [p1] " & _
+     " WHERE ReporterDesc = [p2]"
+
+
+Set qdf = db.CreateQueryDef("", sSQL)
+qdf.Parameters("p2") = "Czechia"
+qdf.Parameters("p1") = "Czech Republic"
+qdf.Execute dbFailOnError
+Set qdf = Nothing
+
+Set qdf = db.CreateQueryDef("", sSQL)
+qdf.Parameters("p2") = "Georgia"
+qdf.Parameters("p1") = "Republic of Georgia"
+qdf.Execute dbFailOnError
+Set qdf = Nothing
+
+Set qdf = db.CreateQueryDef("", sSQL)
+qdf.Parameters("p2") = "Sint Maarten"
+qdf.Parameters("p1") = "Saint Maarten"
+qdf.Execute dbFailOnError
+Set qdf = Nothing
+
+Set qdf = db.CreateQueryDef("", sSQL)
+qdf.Parameters("p2") = "Dominion of Canada"
+qdf.Parameters("p1") = "Canada"
+qdf.Execute dbFailOnError
+Set qdf = Nothing
+
+Set sSQL = Nothing
+Set db = Nothing
+'------ MainDB ReporterDesc Table Correct
+
+'------ MainDB PartnerDesc Table Correct
+Set db = CurrentDb
+sSQL = "UPDATE MainDB SET PartnerDesc = [p1] " & _
+     " WHERE PartnerDesc = [p2]"
+
+Set qdf = db.CreateQueryDef("", sSQL)
+qdf.Parameters("p2") = "Czechia"
+qdf.Parameters("p1") = "Czech Republic"
+qdf.Execute dbFailOnError
+Set qdf = Nothing
+
+Set qdf = db.CreateQueryDef("", sSQL)
+qdf.Parameters("p2") = "Georgia"
+qdf.Parameters("p1") = "Republic of Georgia"
+qdf.Execute dbFailOnError
+Set qdf = Nothing
+
+Set qdf = db.CreateQueryDef("", sSQL)
+qdf.Parameters("p2") = "Sint Maarten"
+qdf.Parameters("p1") = "Saint Maarten"
+qdf.Execute dbFailOnError
+Set qdf = Nothing
+
+Set qdf = db.CreateQueryDef("", sSQL)
+qdf.Parameters("p2") = "Dominion of Canada"
+qdf.Parameters("p1") = "Canada"
+qdf.Execute dbFailOnError
+Set qdf = Nothing
+
+Set sSQL = Nothing
+Set db = Nothing
+'------ MainDB PartnerDesc Table Correct
+
+'------ Company Table Correct
+Set db = CurrentDb
+sSQL = "UPDATE Company SET Country = [p1] " & _
+     " WHERE Country = [p2]"
+
+Set qdf = db.CreateQueryDef("", sSQL)
+qdf.Parameters("p2") = "Czechia"
+qdf.Parameters("p1") = "Czech Republic"
+qdf.Execute dbFailOnError
+Set qdf = Nothing
+
+Set qdf = db.CreateQueryDef("", sSQL)
+qdf.Parameters("p2") = "Georgia"
+qdf.Parameters("p1") = "Republic of Georgia"
+qdf.Execute dbFailOnError
+Set qdf = Nothing
+
+Set qdf = db.CreateQueryDef("", sSQL)
+qdf.Parameters("p2") = "Sint Maarten"
+qdf.Parameters("p1") = "Saint Maarten"
+qdf.Execute dbFailOnError
+Set qdf = Nothing
+
+Set qdf = db.CreateQueryDef("", sSQL)
+qdf.Parameters("p2") = "United States of America"
+qdf.Parameters("p1") = "USA"
+qdf.Execute dbFailOnError
+Set qdf = Nothing
+
+Set qdf = db.CreateQueryDef("", sSQL)
+qdf.Parameters("p2") = "Korea, Republic of"
+qdf.Parameters("p1") = "Rep. of Korea"
+qdf.Execute dbFailOnError
+Set qdf = Nothing
+
+Set qdf = db.CreateQueryDef("", sSQL)
+qdf.Parameters("p2") = "Iran, Islamic Republic of"
+qdf.Parameters("p1") = "Iran"
+qdf.Execute dbFailOnError
+Set qdf = Nothing
+
+Set qdf = db.CreateQueryDef("", sSQL)
+qdf.Parameters("p2") = "Bosnia and Herzegovina"
+qdf.Parameters("p1") = "Bosnia Herzegovina"
+qdf.Execute dbFailOnError
+Set qdf = Nothing
+
+Set qdf = db.CreateQueryDef("", sSQL)
+qdf.Parameters("p2") = "Moldova, Republic of"
+qdf.Parameters("p1") = "Rep. of Moldova"
+qdf.Execute dbFailOnError
+Set qdf = Nothing
+
+
+Set sSQL = Nothing
+Set db = Nothing
+'------ Company Table Correct
+
+MsgBox "All country name corrected"
+
+End Function
