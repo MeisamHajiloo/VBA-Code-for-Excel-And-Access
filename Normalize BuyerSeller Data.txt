@@ -1,0 +1,124 @@
+Sub NormalizeBuyerSellerData()
+    Dim db As DAO.Database
+    Dim rs As DAO.Recordset
+    Dim rsDuplicates As DAO.Recordset
+    Dim strSQL As String
+    Dim originalName As String
+    Dim normalizedName As String
+    Dim affectedRecords As Long
+    Dim duplicateGroups As Long
+    Dim deletedDuplicates As Long
+    
+    On Error GoTo ErrorHandler
+    
+    Set db = CurrentDb()
+    affectedRecords = 0
+    duplicateGroups = 0
+    deletedDuplicates = 0
+    
+    ' ÇíÌÇÏ ÌÏæá ãæÞÊ
+    On Error Resume Next
+    db.Execute "DROP TABLE TempNormalizedNames", dbFailOnError
+    On Error GoTo ErrorHandler
+    
+    db.Execute "CREATE TABLE TempNormalizedNames (OriginalName TEXT(255), NormalizedName TEXT(255))"
+    
+    ' Ñ ˜ÑÏä ÌÏæá ãæÞÊ
+    Set rs = db.OpenRecordset("SELECT DISTINCT [Buyer/Seller] FROM Final")
+    Do Until rs.EOF
+        originalName = rs![Buyer/Seller]
+        normalizedName = NormalizeBuyerSeller(originalName)
+        
+        db.Execute "INSERT INTO TempNormalizedNames (OriginalName, NormalizedName) " & _
+                   "VALUES (" & Chr(34) & originalName & Chr(34) & ", " & Chr(34) & normalizedName & Chr(34) & ")"
+        
+        rs.MoveNext
+    Loop
+    rs.Close
+    
+    ' ÈåÑæÒÑÓÇäí ÌÏæá ÇÕáí
+    db.Execute "UPDATE Final INNER JOIN TempNormalizedNames ON Final.[Buyer/Seller] = TempNormalizedNames.OriginalName " & _
+               "SET Final.[Buyer/Seller] = TempNormalizedNames.NormalizedName"
+    affectedRecords = db.RecordsAffected
+    
+    ' ÔäÇÓÇíí Ñ˜æÑÏåÇí Ê˜ÑÇÑí
+    strSQL = "SELECT [Buyer/Seller], TransDate, Saham AS Namad, COUNT(*) AS RecordCount " & _
+             "FROM Final " & _
+             "GROUP BY [Buyer/Seller], TransDate, Saham " & _
+             "HAVING COUNT(*) > 1"
+    
+    Debug.Print strSQL ' ÈÑÇí ÏíÈÇ
+    
+    Set rs = db.OpenRecordset(strSQL)
+    Do Until rs.EOF
+        duplicateGroups = duplicateGroups + 1
+        
+        ' íÇÝÊä Ñ˜æÑÏ ÈÇ ÈíÔÊÑíä ãÞÏÇÑ
+        strSQL = "SELECT ID FROM Final " & _
+                 "WHERE [Buyer/Seller] = " & Chr(34) & rs![Buyer/Seller] & Chr(34) & _
+                 " AND TransDate = " & Chr(34) & rs!TransDate & Chr(34) & _
+                 " AND Saham = " & Chr(34) & rs!Namad & Chr(34) & _
+                 " ORDER BY ABS(Inventory) + ABS(Trans) DESC"
+        
+        Debug.Print strSQL ' ÈÑÇí ÏíÈÇ
+        
+        Set rsDuplicates = db.OpenRecordset(strSQL)
+        
+        If Not rsDuplicates.EOF Then
+            rsDuplicates.MoveNext ' Çæáíä Ñ˜æÑÏ ÑÇ äå ÏÇÑ
+            Do Until rsDuplicates.EOF
+                db.Execute "DELETE FROM Final WHERE ID = " & rsDuplicates!ID
+                deletedDuplicates = deletedDuplicates + 1
+                rsDuplicates.MoveNext
+            Loop
+        End If
+        rsDuplicates.Close
+        rs.MoveNext
+    Loop
+    rs.Close
+    
+    ' ÍÐÝ ÌÏæá ãæÞÊ
+    db.Execute "DROP TABLE TempNormalizedNames"
+    
+    MsgBox "äÑãÇáÓÇÒí ÇäÌÇã ÔÏ:" & vbCrLf & _
+           "Ñ˜æÑÏåÇí ÈåÑæÒ ÔÏå: " & affectedRecords & vbCrLf & _
+           "ÑæååÇí Ê˜ÑÇÑí: " & duplicateGroups & vbCrLf & _
+           "Ñ˜æÑÏåÇí ÍÐÝ ÔÏå: " & deletedDuplicates, _
+           vbInformation, "äÊÇíÌ"
+    
+    Exit Sub
+    
+ErrorHandler:
+    MsgBox "ÎØÇ ÏÑ ÇÌÑÇí ˜Ï:" & vbCrLf & _
+           "ÔãÇÑå ÎØÇ: " & Err.Number & vbCrLf & _
+           "ÊæÖíÍ ÎØÇ: " & Err.Description & vbCrLf & _
+           "ÏÑ ÏÓÊæÑ: " & strSQL, _
+           vbCritical, "ÎØÇ"
+    If Not rs Is Nothing Then rs.Close
+    If Not rsDuplicates Is Nothing Then rsDuplicates.Close
+    Set rs = Nothing
+    Set rsDuplicates = Nothing
+    Set db = Nothing
+End Sub
+
+
+
+' ÊÇÈÚ äÑãÇáÓÇÒí äÇã Buyer/Seller
+Function NormalizeBuyerSeller(inputStr As String) As String
+    Dim result As String
+    ' ÍÐÝ ÝÖÇåÇí ÇÖÇÝå ÇÒ ÇÈÊÏÇ æ ÇäÊåÇ
+    result = Trim(inputStr)
+    ' ÌÇíÒíäí äÏ ÝÇÕáå ÈÇ í˜ ÝÇÕáå
+    result = Replace(result, "  ", " ")
+    ' ÇÓÊÇäÏÇÑÏÓÇÒí ÎØ ÊíÑååÇ
+    result = Replace(result, " - ", "-")
+    result = Replace(result, " -", "-")
+    result = Replace(result, "- ", "-")
+    ' ÇÓÊÇäÏÇÑÏÓÇÒí äÞØå åÇ
+    result = Replace(result, " . ", ".")
+    result = Replace(result, " .", ".")
+    result = Replace(result, ". ", ".")
+    NormalizeBuyerSeller = result
+End Function
+
+
