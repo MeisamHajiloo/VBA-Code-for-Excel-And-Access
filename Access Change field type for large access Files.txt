@@ -1,0 +1,35 @@
+Function ChangeFieldType()
+'Change a column Type Function
+
+Dim dbsData As DAO.Database
+Dim tdf As TableDef, fld As DAO.Field
+
+Set dbsData = CurrentDb
+
+'---Create New Field
+dbsData.TableDefs.Refresh
+Set tdf = dbsData.TableDefs("MainDB")
+Set fld = tdf.CreateField("CmdCodeNew", dbText, 6)
+'Optional: set default value
+fld.DefaultValue = "0"
+'We set ordinal position, just after old field
+fld.OrdinalPosition = 2
+'And append
+tdf.Fields.Append fld
+
+'Copy values from old field to a new one
+dbsData.Execute _
+"Update MainDB Set CmdCodeNew=CmdCode", dbFailOnError
+
+'Delete old field
+tdf.Fields.Delete "CmdCode"
+tdf.Fields.Refresh
+
+'Rename new field to old
+tdf.Fields("CmdCodeNew").Name = "CmdCode"
+tdf.Fields.Refresh
+'Done!
+Set tdf = Nothing
+
+
+End Function
