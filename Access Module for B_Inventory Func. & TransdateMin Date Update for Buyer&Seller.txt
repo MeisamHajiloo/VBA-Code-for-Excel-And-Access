@@ -1,0 +1,136 @@
+Option Compare Database
+Option Explicit
+
+Public Function B_InventoryMake(I_Namad As String, I_TransDateMin As Double) As Double
+    Dim strSQL As String
+    Dim rs As DAO.Recordset
+    Dim str As Double: str = 1
+    strSQL = "SELECT R_B_Inventory FROM B_Inventory " & " where Namad = " & "'" & I_Namad & "'" & "and TransDateMin >=" & I_TransDateMin & "and TransDateMax <> 0"
+    
+                 
+    Set rs = CurrentDb.OpenRecordset(strSQL)
+    
+    If Not rs.BOF And Not rs.EOF Then
+        rs.MoveFirst
+        While (Not rs.EOF)
+            str = str * (1 + rs.Fields("R_B_Inventory"))
+            rs.MoveNext
+        Wend
+    End If
+function_exit:
+    B_InventoryMake = str
+    rs.Close
+   
+    Set rs = Nothing
+    
+End Function
+
+
+Public Sub UpdateTransDateMin()
+    Dim db As DAO.Database
+    Dim rsGroup As DAO.Recordset
+    Dim rsUpdate As DAO.Recordset
+    Dim strSQL As String
+    Dim strNamad As String
+    Dim maxTransDateMax As String
+    Dim recordsUpdated As Integer
+    Dim errorGroups As String
+    Dim detailedLog As String
+    Dim filePath As String
+    Dim fileNum As Integer
+    
+    ' Initialize counters and logs
+    recordsUpdated = 0
+    errorGroups = ""
+    detailedLog = ""
+    filePath = "C:\Buyer\TransDateMin_Update_Report.txt"
+    fileNum = FreeFile()
+    
+    ' Create log headers
+    detailedLog = detailedLog & "ÒÇÑÔ ÌÒÆíÇÊ ÈåÑæÒÑÓÇäí TransDateMin" & vbCrLf
+    detailedLog = detailedLog & "ÊÇÑíÎ ÇÌÑÇ: " & Now() & vbCrLf & vbCrLf
+    detailedLog = detailedLog & "áíÓÊ äãÇÏåÇí ÈåÑæÒÑÓÇäí ÔÏå:" & vbCrLf
+    detailedLog = detailedLog & "------------------------------" & vbCrLf
+    
+    Set db = CurrentDb()
+    
+    ' Get distinct Namad values
+    strSQL = "SELECT DISTINCT Namad FROM [B_Inventory] ORDER BY Namad"
+    Set rsGroup = db.OpenRecordset(strSQL)
+    
+    ' Process each Namad group
+    Do Until rsGroup.EOF
+        strNamad = rsGroup!Namad
+        
+        ' Find records that meet the criteria for update
+        strSQL = "SELECT * FROM [B_Inventory] WHERE Namad = '" & strNamad & "' " & _
+                 "AND TransDateMin = 14000101 AND TransDateMax IS NULL"
+        Set rsUpdate = db.OpenRecordset(strSQL)
+        
+        ' Check if we have exactly one record to update
+        If rsUpdate.RecordCount = 1 Then
+            ' Find the maximum TransDateMax for this Namad
+            strSQL = "SELECT MAX(TransDateMax) AS MaxDate FROM [B_Inventory] " & _
+                     "WHERE Namad = '" & strNamad & "' AND TransDateMax IS NOT NULL"
+            Dim rsMax As DAO.Recordset
+            Set rsMax = db.OpenRecordset(strSQL)
+            
+            If Not IsNull(rsMax!MaxDate) Then
+                maxTransDateMax = rsMax!MaxDate
+                
+                ' Update the record
+                db.Execute "UPDATE [B_Inventory] SET TransDateMin = '" & maxTransDateMax & "' " & _
+                           "WHERE Namad = '" & strNamad & "' AND TransDateMin = 14000101 AND TransDateMax IS NULL"
+                
+                recordsUpdated = recordsUpdated + 1
+                detailedLog = detailedLog & recordsUpdated & ". " & strNamad & " | TransDateMin ÌÏíÏ: " & maxTransDateMax & vbCrLf
+            Else
+                ' No max date found - can't update
+                errorGroups = errorGroups & " - " & strNamad & " (íÇÝÊ äÔÏä TransDateMax ÈÑÇí ÈåÑæÒÑÓÇäí)" & vbCrLf
+            End If
+            
+            rsMax.Close
+        ElseIf rsUpdate.RecordCount > 1 Then
+            ' More than one record found for update - skip this group
+            errorGroups = errorGroups & " - " & strNamad & " (äÏíä Ñ˜æÑÏ ÈÑÇí ÈåÑæÒÑÓÇäí íÇÝÊ ÔÏ)" & vbCrLf
+        End If
+        
+        rsUpdate.Close
+        rsGroup.MoveNext
+    Loop
+    
+    ' Add errors to detailed log if any
+    If Len(errorGroups) > 0 Then
+        detailedLog = detailedLog & vbCrLf & "ÎØÇåÇ:" & vbCrLf & "------" & vbCrLf & errorGroups
+    Else
+        detailedLog = detailedLog & vbCrLf & "åí ÎØÇíí íÇÝÊ äÔÏ." & vbCrLf
+    End If
+    
+    ' Add summary at the beginning of the log
+    detailedLog = "ÊÚÏÇÏ Ñ˜æÑÏåÇí ÈåÑæÒÑÓÇäí ÔÏå: " & recordsUpdated & vbCrLf & vbCrLf & detailedLog
+    
+    ' Save detailed log to file
+    Open filePath For Output As #fileNum
+    Print #fileNum, detailedLog
+    Close #fileNum
+    
+    ' Display summary to user
+    Dim summaryMsg As String
+    summaryMsg = "ÚãáíÇÊ ÈåÑæÒÑÓÇäí ÈÇ ãæÝÞíÊ ÇäÌÇã ÔÏ." & vbCrLf & vbCrLf
+    summaryMsg = summaryMsg & "ÊÚÏÇÏ Ñ˜æÑÏåÇí ÈåÑæÒÑÓÇäí ÔÏå: " & recordsUpdated & vbCrLf
+    
+    If Len(errorGroups) > 0 Then
+        summaryMsg = summaryMsg & "ÊÚÏÇÏ ÎØÇåÇ: " & Len(errorGroups) / Len(vbCrLf) & vbCrLf
+    End If
+    
+    summaryMsg = summaryMsg & vbCrLf & "ÒÇÑÔ ˜Çãá ÏÑ ÝÇíá ÒíÑ ÐÎíÑå ÔÏ:" & vbCrLf & filePath
+    
+    MsgBox summaryMsg, vbInformation, "ÎáÇÕå äÊÇíÌ ÈåÑæÒÑÓÇäí"
+    
+    ' Clean up
+    rsGroup.Close
+    Set rsUpdate = Nothing
+    Set rsGroup = Nothing
+    Set db = Nothing
+End Sub
+
